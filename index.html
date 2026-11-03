@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Панель — справка</title>
+<style>
+  :root { color-scheme: light dark; --bg:#f4f5f7; --card:#ffffff; --ink:#15171a; --muted:#6a7078; --line:#e1e4e8; --accent:#1f3a5f; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#16171a; --card:#212328; --ink:#eceef1; --muted:#9aa0a6; --line:#33363c; --accent:#7fb4ff; } }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; }
+  main { max-width:520px; margin:0 auto; padding:20px 16px 32px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; }
+  .kicker { color:var(--muted); font-size:13px; letter-spacing:.02em; margin:0 0 4px; }
+  h1 { margin:0 0 12px; font-size:34px; line-height:1.1; color:var(--accent); font-weight:700; }
+  .pill { display:inline-block; padding:4px 12px; border-radius:999px; color:#fff; font-size:14px; font-weight:600; margin-bottom:16px; }
+  dl { margin:0; }
+  .row { display:flex; justify-content:space-between; gap:16px; padding:11px 0; border-top:1px solid var(--line); }
+  .row dt { color:var(--muted); }
+  .row dd { margin:0; font-weight:600; text-align:right; }
+  .note { color:var(--muted); font-size:13px; margin:16px 4px 0; }
+  .err { padding:20px; text-align:center; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <div class="card" id="card"><div class="err">Загрузка…</div></div>
+  <p class="note" id="note"></p>
+</main>
+<script>
+(function () {
+  var STATUS = [
+    ['Статус не определён', '#6a7078'], ['Спроектирована', '#5a6b8c'], ['Передана в печать', '#c47f0a'],
+    ['Напечатана', '#2e9e5b'], ['Доставлена', '#178a9e'], ['Установлена', '#2f6db5'], ['Выбывшая', '#c93c3c']
+  ];
+  var card = document.getElementById('card'), note = document.getElementById('note');
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fail(msg) { card.innerHTML = '<div class="err">' + esc(msg) + '</div>'; }
+  try {
+    var h = location.hash.replace(/^#/, '');
+    if (!h) return fail('В ссылке нет данных о панели. Отсканируйте QR-код с этикетки ещё раз.');
+    var b64 = h.replace(/-/g, '+').replace(/_/g, '/'); while (b64.length % 4) b64 += '=';
+    var bin = atob(b64), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    var f = new TextDecoder('utf-8').decode(bytes).split('|');
+    if (f[0] !== '1') return fail('Неизвестная версия формата этикетки.');
+    // версия | № панели | зона | этаж | задание | масса расчёт | масса факт | габариты | площадь | статус | материал | дата
+    var id = f[1] || '', zone = f[2] || '', floor = f[3] || '', job = f[4] || '', mass = f[5] || '', fact = f[6] || '',
+        dims = f[7] || '', area = f[8] || '', st = parseInt(f[9] || '0', 10) || 0, mat = f[10] || '', date = f[11] || '';
+    var s = STATUS[st] || STATUS[0];
+    var rows = [['Зона', zone], ['Этаж', floor], ['Задание', job], ['Масса (расчёт)', mass && mass + ' кг'], ['Масса (факт)', fact && fact + ' кг'],
+                ['Габариты В × Д × Ш', dims && dims.replace(/x/g, ' × ') + ' мм'], ['Площадь', area && area + ' м²'], ['Материал', mat]];
+    var html = '<p class="kicker">Панель</p><h1>№ ' + esc(id) + '</h1><span class="pill" style="background:' + s[1] + '">' + esc(s[0]) + '</span><dl>';
+    rows.forEach(function (r) { if (r[1]) html += '<div class="row"><dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd></div>'; });
+    card.innerHTML = html + '</dl>';
+    note.textContent = 'Справка на момент печати этикетки' + (date ? ' (' + date + ')' : '') + '. Данные хранятся только в самой ссылке; актуальный статус — в программе или на сайте трекинга.';
+    document.title = 'Панель № ' + id;
+  } catch (e) { fail('Не удалось прочитать данные из ссылки.'); }
+})();
+</script>
+</body>
+</html>
